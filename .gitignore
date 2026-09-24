@@ -5,3 +5,4 @@ runs/
 data/full/
 .DS_Store
 *.egg-info/
+data/cranfield/

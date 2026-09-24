@@ -83,3 +83,28 @@ tests/          the exact tests CI runs on every push
 - An optional bonus track (`submission/adversarial_set.json`) that is
   genuinely head-to-head against the rest of the class, not just a shared
   leaderboard climb.
+
+## My submission (what is implemented)
+
+`submission/feedback.py` (+ `submission/text_utils.py`), standard library only:
+
+- **Analysis:** lowercase alphanumeric tokens and a from-scratch Porter stemmer for docs and queries. Stopwords are removed from queries and expansion terms only.
+- **`score_candidates()`:** unigram query likelihood with Dirichlet smoothing, μ = 3 × average doc length. Jelinek-Mercer is available via `SMOOTHING="jm"`.
+- **`relevance_model_feedback()`:** RM1, RM2 (Lavrenko & Croft's iid-sampling form) and RM3, selected with `RM_VARIANT`.
+  - Seed weights are `P(D|Q)`, computed from each call's own seed.
+  - The top 45 expansion terms are kept.
+  - Candidates are ranked by cross-entropy against the Dirichlet-smoothed doc models.
+  - Defaults: RM3 over RM1, λ = 0.5 on the original query.
+- **Tests:** `tests/test_feedback_correctness.py` checks QL, RM1, RM2 and RM3 against hand-computed values on a 3-doc corpus.
+
+### Reproducing the tuning
+
+```bash
+python scripts/build_cranfield_proxy.py          # Cranfield + our own BM25 top-100 -> data/cranfield/
+python scripts/sweep.py ql --data data/cranfield --out runs/ql.csv
+python scripts/sweep.py fb --data data/cranfield --variants rm1,rm2,rm3 \
+    --lambdas 0,0.2,0.4,0.5,0.6,0.8,1.0 --levels 0.25,0.5,0.75 --out runs/fb.csv
+python scripts/build_adversarial_set.py --data data/full   # bonus set; needs the real dev candidates
+```
+
+All scripts take `--data`. Point them at `data/full` once the staff `candidates_dev.jsonl` is released.
