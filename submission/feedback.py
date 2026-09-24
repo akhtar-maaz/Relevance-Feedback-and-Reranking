@@ -43,11 +43,13 @@ library only):
        query likelihood, so a seed document that matches the query poorly
        (typical of contamination) gets exponentially less say in P(w|R).
        SEED_WEIGHT_TEMP flattens/sharpens that posterior.
-     * Optional (off by default): expansion terms must occur in at least
-       MIN_SEED_DF seed documents, and seed weights can be multiplied by
-       each document's coherence with the rest of the seed
-       (COHERENCE_POWER). Both were measured on the dev sweep; neither
-       improved retention there, so both are disabled.
+     * Expansion terms must occur in at least MIN_SEED_DF seed documents
+       (when the seed has >= 3 documents), so vocabulary contributed by a
+       single off-topic document cannot enter the model on its own
+       (helped on TREC-COVID, neutral on Cranfield).
+     * Optional, off by default: seed weights multiplied by each document's
+       coherence with the rest of the seed (COHERENCE_POWER); its effect
+       was inconsistent across the two dev collections.
      * Only the top FB_TERMS non-stopword terms are kept.
      * The original query keeps weight λ (RM3), anchoring the model.
 """
@@ -78,7 +80,7 @@ FB_LAMBDA = 0.5            # RM3 weight on the ORIGINAL query model P(w|Q)
 FB_TERMS = 45              # expansion terms kept from P(w|R)
 FB_MAX_DOCS = 50           # safety cap on how many seed documents are used
 SEED_WEIGHT_TEMP = 1.0     # P(D|Q) ∝ exp(log P(Q|D) / T)
-MIN_SEED_DF = 1            # expansion term must appear in >= this many seed docs
+MIN_SEED_DF = 2            # expansion term must appear in >= this many seed docs
 COHERENCE_POWER = 0.0      # P(D|Q) multiplied by (mean cosine to other seed docs)^power
 RANK_MU = None             # Dirichlet mu for ranking with θ (None -> same mu as QL)
 

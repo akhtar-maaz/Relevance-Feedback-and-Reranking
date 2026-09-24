@@ -94,7 +94,7 @@ tests/          the exact tests CI runs on every push
   - Seed weights are `P(D|Q)`, computed from each call's own seed.
   - The top 45 expansion terms are kept.
   - Candidates are ranked by cross-entropy against the Dirichlet-smoothed doc models.
-  - Defaults: RM3 over RM1, λ = 0.5 on the original query.
+  - Defaults: RM3 over RM1, λ = 0.5 on the original query, and expansion terms must appear in at least 2 seed docs.
 - **Tests:** `tests/test_feedback_correctness.py` checks QL, RM1, RM2 and RM3 against hand-computed values on a 3-doc corpus.
 
 ### Reproducing the tuning
@@ -108,3 +108,14 @@ python scripts/build_adversarial_set.py --data data/full   # bonus set; needs th
 ```
 
 All scripts take `--data`. Point them at `data/full` once the staff `candidates_dev.jsonl` is released.
+
+### TREC-COVID without ir_datasets
+
+If the BEIR/HuggingFace hosts are unreachable, run:
+
+```bash
+python scripts/build_trec_covid.py                                        # CORD-19 2020-07-16 + BEIR topics/qrels -> data/full/
+python scripts/build_cranfield_proxy.py --candidates-only --out data/full  # stand-in BM25 top-100 pools
+```
+
+The results are in `experiments/trec_covid/`.
