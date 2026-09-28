@@ -142,3 +142,47 @@ ignored local file `runs/full-dev/anchor_sensitivity_verified.json`. The
 reproduction command is in [EXPERIMENTS.md](EXPERIMENTS.md). This provides
 evidence about public development topics only; it does not establish that
 the next hidden leaderboard result will improve.
+
+## Rank fusion after the second leaderboard result
+
+The second screenshot showed rank 14, Track A 0.4960, Track B 0.4990,
+Track C retention 0.9300, and final score 0.1257. This was a small gain
+from rank 15, Track B 0.4896, retention 0.8565, and final score 0.0829.
+Track A did not move because the previous change affected only feedback.
+
+The supplied candidate list is already ranked by a first-pass retriever,
+but its scores are not passed to the submission. The new base ranks every
+candidate by Dirichlet query likelihood, then combines its rank with the
+candidate's original position: `first_pass_rank + 0.5 * QL_rank` (smaller
+is better). Feedback still estimates RM1 and interpolates RM3. Its final
+ranking combines the new base rank with the RM3 rank as
+`base_rank + 0.25 * RM3_rank` for the 100-document public pools. For very
+small pools the feedback weight rises, so the supplied seed can still
+change the result. This is a real, seed-dependent feedback ranking, with
+the query and the first pass anchoring noisy estimates.
+
+On all 50 public development topics, the unchanged local harness reported:
+
+| Measure | Previous submission | Rank fusion |
+|---|---:|---:|
+| Track A nDCG@10 | 0.531282 | 0.573883 |
+| Track B clean nDCG@10 | 0.585438 | 0.583922 |
+| Track C public practice retention | not comparable to the five-seed result below | 0.9994 |
+
+The previous Track B figure is from the five-seed sensitivity study,
+whose clean condition was evaluated once. The public practice retention
+above uses the harness's two default noisy conditions and one draw each.
+In an additional five-draw sweep, the new model scored 0.583922 clean,
+0.584011 at requested 25% noise, 0.584820 at 50%, 0.583940 at 75%, and
+0.583144 at 100%. The noisy-to-clean ratio across those four noisy
+conditions is approximately 1.0001. Results, per-query measurements, and
+repeat variation are in the ignored local file
+`runs/full-dev/rank_fusion_sensitivity.json`.
+
+Rank weights were explored after looking at both groups of the earlier
+35/15 split. Those groups are no longer independent validation evidence
+for this change. The class leaderboard uses held-out topics, a separate
+noise recipe, and percentile scores, so this result does not guarantee
+a similar leaderboard gain. The candidate order may also be less useful
+on another pool. The unigram likelihood and RM1/RM3 computations remain
+independently inspectable in `submission/feedback.py`.

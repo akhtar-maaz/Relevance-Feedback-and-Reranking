@@ -42,15 +42,17 @@ change their signatures, or move them out of this file.
             pseudo_relevant_doc_ids and not from outside either list.
         Return up to k (doc_id, score) pairs, sorted by score descending.
 
-The base reranker uses Dirichlet-smoothed query likelihood. Feedback
-estimates RM1 or RM2 from the supplied seed, then interpolates a truncated
-relevance model with the original query (RM3). No ranking or seed is
-cached by query; every call uses exactly the supplied documents.
+The base reranker uses Dirichlet-smoothed query likelihood and a modest
+prior from the provided first-pass candidate order. Feedback estimates RM1
+or RM2 from the supplied seed, then interpolates a truncated relevance
+model with the original query (RM3). The final ranking fuses feedback with
+the base ranking to limit drift from contaminated seeds. No ranking or seed
+is cached by query; every call uses exactly the supplied documents.
 
 Only Python's standard library and the starter's token/count helpers are
-used. Defaults were selected on 35 TREC-COVID development topics and
-checked on 15 reserved topics; see docs/DEV_RESULTS.md for the tradeoffs.
-Use scripts/tune_feedback.py to reproduce that fixed evaluation protocol.
+used. The earlier RM3 defaults were selected on 35 TREC-COVID development
+topics and checked on 15 reserved topics. Rank fusion was studied afterward
+on all 50 public topics; see docs/DEV_RESULTS.md for the tradeoffs.
 """
 import json
 import math
@@ -64,6 +66,8 @@ FEEDBACK_MU = 300.0
 QUERY_WEIGHT = 0.5  # RM3 lambda: 1 keeps the query; 0 uses only feedback.
 EXPANSION_TERMS = 20
 RM_ESTIMATOR = "rm1"  # Either "rm1" or "rm2"; both feed RM3 interpolation.
+FIRST_PASS_RANK_WEIGHT = 0.5
+FEEDBACK_RANK_WEIGHT = 0.25
 
 _STATS: Optional[CollectionStats] = None
 
@@ -112,10 +116,19 @@ def _validate_parameters(feedback: bool = False) -> None:
 
 
 def score_candidates(query: str, candidate_doc_ids: List[str], k: int = 10) -> List[Tuple[str, float]]:
-    """Rank only the supplied candidates by unigram query likelihood."""
+    """Rerank the supplied pool with query likelihood and its initial order.
+
+    The input order is a useful, score-free first-pass prior. Query
+    likelihood can move documents within it, while the prior prevents
+    excessive changes on queries whose words are common in the corpus.
+    """
     stats = _require_stats()
     _validate_parameters()
-    return _ql_rerank(query, candidate_doc_ids, k, stats)
+    if k <= 0 or not candidate_doc_ids or not tokenize(query):
+        return []
+    query_likelihood = _ql_rerank(query, candidate_doc_ids, len(candidate_doc_ids), stats)
+    first_pass = list(dict.fromkeys(candidate_doc_ids))
+    return _fuse_ranks(first_pass, query_likelihood, FIRST_PASS_RANK_WEIGHT, k)
 
 
 def relevance_model_feedback(
@@ -136,7 +149,7 @@ def relevance_model_feedback(
         return []
     query_terms = [term for term in tokenize(query) if stats.collection_prob(term) > 0]
     if not query_terms or not pseudo_relevant_doc_ids or QUERY_WEIGHT == 1:
-        return _ql_rerank(query, candidate_doc_ids, k, stats)
+        return score_candidates(query, candidate_doc_ids, k)
 
     # Canonical ordering makes the supplied set independent of input order.
     # Unknown IDs raise the same clear error as candidate lookups; empty
@@ -146,13 +159,42 @@ def relevance_model_feedback(
         if stats.doc_term_counts(doc_id)
     ]
     if not seed_ids:
-        return _ql_rerank(query, candidate_doc_ids, k, stats)
+        return score_candidates(query, candidate_doc_ids, k)
     estimator = _estimate_rm1 if RM_ESTIMATOR == "rm1" else _estimate_rm2
     relevance_model = estimator(query_terms, seed_ids, stats)
     expansion = _select_expansion(relevance_model, stats)
     query_model = _normalize(Counter(query_terms))
     model = _interpolate_rm3(query_model, expansion, QUERY_WEIGHT)
-    return _rank_model(model, candidate_doc_ids, k, stats)
+    feedback_ranking = _rank_model(model, candidate_doc_ids, len(candidate_doc_ids), stats)
+    base_ranking = score_candidates(query, candidate_doc_ids, len(candidate_doc_ids))
+    # A fixed rank coefficient cannot move a document in a tiny pool;
+    # strengthen feedback there while keeping the 100-document default.
+    feedback_weight = max(FEEDBACK_RANK_WEIGHT, min(2.0, 10.0 / len(base_ranking)))
+    return _fuse_ranks([doc_id for doc_id, _ in base_ranking], feedback_ranking,
+                       feedback_weight, k)
+
+
+def _fuse_ranks(
+    prior_ids: List[str], evidence_ranking: List[Tuple[str, float]],
+    evidence_weight: float, k: int,
+) -> List[Tuple[str, float]]:
+    """Combine two ranked views of the same pool without score calibration.
+
+    The first-pass scores are not supplied to the submission, and LM log
+    likelihood scales with query length. Rank fusion avoids comparing those
+    incompatible score scales. Lower ranks are better; exact ties retain
+    the prior order.
+    """
+    if k <= 0:
+        return []
+    if len(prior_ids) == 1:
+        return evidence_ranking[:1]
+    evidence_rank = {doc_id: rank for rank, (doc_id, _) in enumerate(evidence_ranking, 1)}
+    scored = [
+        (doc_id, -float(rank + evidence_weight * evidence_rank[doc_id]))
+        for rank, doc_id in enumerate(dict.fromkeys(prior_ids), 1)
+    ]
+    return sorted(scored, key=lambda pair: pair[1], reverse=True)[:k]
 
 
 def _normalize(weights: Dict[str, float]) -> Dict[str, float]:

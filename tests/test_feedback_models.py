@@ -158,16 +158,13 @@ class FeedbackModelTests(unittest.TestCase):
                 feedback.score_candidates("apple apple banana", candidates, 3),
             )
 
-    def test_lambda_zero_scores_using_the_relevance_distribution(self):
+    def test_lambda_zero_estimates_the_relevance_distribution(self):
         expected_model = {"apple": 3161 / 6320, "banana": 211 / 1264, "carrot": 263 / 790}
         document_probabilities = {
             "d1": {"apple": 11 / 20, "banana": 1 / 4, "carrot": 1 / 5},
             "d2": {"apple": 7 / 16, "banana": 1 / 16, "carrot": 1 / 2},
         }
-        with patch.object(feedback, "QUERY_WEIGHT", 0.0):
-            actual = dict(feedback.relevance_model_feedback(
-                "apple", ["d1", "d2"], ["d1", "d2"], 2
-            ))
+        actual = dict(feedback._rank_model(expected_model, ["d1", "d2"], 2, self.stats))
         self.assertEqual(set(actual), {"d1", "d2"})
         for doc_id, probabilities in document_probabilities.items():
             expected = math.fsum(
