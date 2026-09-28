@@ -226,3 +226,39 @@ score 0.0750. The large public gains failed to transfer to hidden topics.
 The opening-text model and its changed rank weights were removed; the
 submission code was restored to commit `491d357`, whose leaderboard score
 was 0.1929. The later dependency-only conformance fix remains in place.
+
+## Conservative rank-fusion trial
+
+The restored leaderboard result was Track A nDCG@10 0.5021, MAP@10
+0.4267, Track B nDCG@10 0.5027, retention 0.9968, and final score
+0.1929. Several leading leaderboard rows had equal Track A and Track B
+scores to four decimal places and retention 1.0000. This is consistent
+with very conservative feedback, although their implementations are not
+visible and this pattern does not establish what they did.
+
+This trial changes only two rank weights: the full-text query-likelihood
+rank receives weight 0.1 instead of 0.5 against the supplied first-pass
+candidate order, and the RM3 feedback rank receives weight 0.1 instead
+of 0.25 against the base rank. RM1/RM3 estimation and all corpus/query
+processing remain the same. Query likelihood still changed the top-10
+ordering on 24 of 50 public topics and brought 8 documents into the
+top 10 that were not in the first-pass top 10.
+
+| Public development measure | Restored version | Conservative trial |
+|---|---:|---:|
+| Track A nDCG@10 | 0.573883 | 0.584466 |
+| Track B clean nDCG@10 | 0.583922 | 0.585689 |
+| Public practice retention, default draws | 0.9994 | 1.0000 |
+
+Across five public noise draws, clean feedback scored 0.585689;
+requested 25%, 50%, 75%, and 100% noise scored 0.587434, 0.588407,
+0.586811, and 0.585743 respectively. The mean noisy-to-clean ratio
+exceeded 1 and is capped at 1.0 by the leaderboard's retention rule.
+The complete local measurements are in ignored
+`runs/full-dev/conservative_fusion_report.json` and
+`runs/full-dev/conservative_fusion_sensitivity.json`.
+
+The same public topics have been inspected repeatedly, so these results
+are exploratory. The hidden leaderboard is the only available check of
+whether this conservative trial actually improves the score; the prior
+0.1929 submission remains the best known hidden result until then.

@@ -66,8 +66,8 @@ FEEDBACK_MU = 300.0
 QUERY_WEIGHT = 0.5  # RM3 lambda: 1 keeps the query; 0 uses only feedback.
 EXPANSION_TERMS = 20
 RM_ESTIMATOR = "rm1"  # Either "rm1" or "rm2"; both feed RM3 interpolation.
-FIRST_PASS_RANK_WEIGHT = 0.5
-FEEDBACK_RANK_WEIGHT = 0.25
+FIRST_PASS_RANK_WEIGHT = 0.1
+FEEDBACK_RANK_WEIGHT = 0.1
 
 _STATS: Optional[CollectionStats] = None
 
