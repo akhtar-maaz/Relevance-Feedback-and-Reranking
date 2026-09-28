@@ -259,6 +259,21 @@ The complete local measurements are in ignored
 `runs/full-dev/conservative_fusion_sensitivity.json`.
 
 The same public topics have been inspected repeatedly, so these results
-are exploratory. The hidden leaderboard is the only available check of
-whether this conservative trial actually improves the score; the prior
-0.1929 submission remains the best known hidden result until then.
+are exploratory. On the hidden leaderboard this trial reached Track A
+nDCG@10 0.5028, MAP@10 0.4273, Track B nDCG@10 0.5018, retention
+0.9990, and final score 0.2440. This was a higher final score than the
+restored 0.1929 version, although the class-relative score can also
+change when other teams submit.
+
+## Smaller feedback contribution trial
+
+The next trial keeps the successful base rank weight at 0.1 and reduces
+only the feedback rank weight from 0.1 to 0.05. The relevance model is
+still estimated from the supplied seed and can affect rankings; in a
+100-document pool, a large feedback-rank difference can still move a
+candidate several places. Public development top-10 metrics were
+unchanged between these two feedback weights in a three-draw comparison,
+so there is no local evidence that the change improves accuracy. The
+reason to try it is the hidden retention of 0.9990 and the observation
+that leading teams often retain 1.0000. The 0.2440 submission remains
+the best known hidden result until this trial is evaluated there.
