@@ -191,5 +191,312 @@
     "harness/run_harness.py": "1fcbf611c285123c864ec27db48eb16474737986b12104cd47ba0ca34e1ecf8f",
     "harness/trec_io.py": "f255490601b6f059ef78066d0a7bccef3ac3cf893529d3f9447145596982de9a"
   },
-  "notes": "All-topic metrics include tuning topics. Reserved-topic gains were uneven. No private grading data was used."
+  "notes": "All-topic metrics include tuning topics. Reserved-topic gains were uneven. No private grading data was used.",
+  "follow_up_after_leaderboard_screenshot": {
+    "leaderboard_snapshot": {
+      "rank": 15,
+      "track_a_ndcg10": 0.496,
+      "track_b_ndcg10": 0.4896,
+      "track_c_retention": 0.8565
+    },
+    "tested_settings": {
+      "dirichlet_mu": 500,
+      "feedback_mu": 300,
+      "rm_estimator": "rm1",
+      "expansion_terms": 20,
+      "query_weights": [
+        0.25,
+        0.5,
+        0.65,
+        0.75,
+        0.85,
+        0.95,
+        1.0
+      ],
+      "base_seeds": [
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "noise_levels": [
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0
+      ]
+    },
+    "interpretation": "Follow-up sensitivity check reused all 50 public development topics; not an independent validation.",
+    "results": [
+      {
+        "query_weight": 0.25,
+        "conditions": [
+          {
+            "requested_noise": 0.0,
+            "mean_actual_replacement_fraction": 0.0,
+            "ndcg10_mean": 0.5906321651507829,
+            "ndcg10_sample_std": 0.0
+          },
+          {
+            "requested_noise": 0.25,
+            "mean_actual_replacement_fraction": 0.2,
+            "ndcg10_mean": 0.5899649515730391,
+            "ndcg10_sample_std": 0.008289481878018028
+          },
+          {
+            "requested_noise": 0.5,
+            "mean_actual_replacement_fraction": 0.5,
+            "ndcg10_mean": 0.5767368668203836,
+            "ndcg10_sample_std": 0.015160392470643928
+          },
+          {
+            "requested_noise": 0.75,
+            "mean_actual_replacement_fraction": 0.8,
+            "ndcg10_mean": 0.5348933739067567,
+            "ndcg10_sample_std": 0.022542084694429306
+          },
+          {
+            "requested_noise": 1.0,
+            "mean_actual_replacement_fraction": 1.0,
+            "ndcg10_mean": 0.5145385810678602,
+            "ndcg10_sample_std": 0.010774825762870746
+          }
+        ],
+        "mean_all_conditions": 0.5613531877037644,
+        "mean_noisy_over_clean": 0.9380346618958185
+      },
+      {
+        "query_weight": 0.5,
+        "conditions": [
+          {
+            "requested_noise": 0.0,
+            "mean_actual_replacement_fraction": 0.0,
+            "ndcg10_mean": 0.5854380051318672,
+            "ndcg10_sample_std": 0.0
+          },
+          {
+            "requested_noise": 0.25,
+            "mean_actual_replacement_fraction": 0.2,
+            "ndcg10_mean": 0.589392259995718,
+            "ndcg10_sample_std": 0.006356247038755539
+          },
+          {
+            "requested_noise": 0.5,
+            "mean_actual_replacement_fraction": 0.5,
+            "ndcg10_mean": 0.5831181042801654,
+            "ndcg10_sample_std": 0.010656614728327768
+          },
+          {
+            "requested_noise": 0.75,
+            "mean_actual_replacement_fraction": 0.8,
+            "ndcg10_mean": 0.5624603790390528,
+            "ndcg10_sample_std": 0.02067171561110687
+          },
+          {
+            "requested_noise": 1.0,
+            "mean_actual_replacement_fraction": 1.0,
+            "ndcg10_mean": 0.5482981188841226,
+            "ndcg10_sample_std": 0.00360072382547621
+          }
+        ],
+        "mean_all_conditions": 0.5737413734661853,
+        "mean_noisy_over_clean": 0.975025896074497
+      },
+      {
+        "query_weight": 0.65,
+        "conditions": [
+          {
+            "requested_noise": 0.0,
+            "mean_actual_replacement_fraction": 0.0,
+            "ndcg10_mean": 0.5719626300593683,
+            "ndcg10_sample_std": 0.0
+          },
+          {
+            "requested_noise": 0.25,
+            "mean_actual_replacement_fraction": 0.2,
+            "ndcg10_mean": 0.5784581296159597,
+            "ndcg10_sample_std": 0.00399901700022405
+          },
+          {
+            "requested_noise": 0.5,
+            "mean_actual_replacement_fraction": 0.5,
+            "ndcg10_mean": 0.5742394639078384,
+            "ndcg10_sample_std": 0.009457079734523605
+          },
+          {
+            "requested_noise": 0.75,
+            "mean_actual_replacement_fraction": 0.8,
+            "ndcg10_mean": 0.5600807874053462,
+            "ndcg10_sample_std": 0.013613386263478083
+          },
+          {
+            "requested_noise": 1.0,
+            "mean_actual_replacement_fraction": 1.0,
+            "ndcg10_mean": 0.5502030404412097,
+            "ndcg10_sample_std": 0.004844659341429367
+          }
+        ],
+        "mean_all_conditions": 0.5669888102859445,
+        "mean_noisy_over_clean": 0.989129928442817
+      },
+      {
+        "query_weight": 0.75,
+        "conditions": [
+          {
+            "requested_noise": 0.0,
+            "mean_actual_replacement_fraction": 0.0,
+            "ndcg10_mean": 0.5620257549602193,
+            "ndcg10_sample_std": 0.0
+          },
+          {
+            "requested_noise": 0.25,
+            "mean_actual_replacement_fraction": 0.2,
+            "ndcg10_mean": 0.560952839275287,
+            "ndcg10_sample_std": 0.005092689734083668
+          },
+          {
+            "requested_noise": 0.5,
+            "mean_actual_replacement_fraction": 0.5,
+            "ndcg10_mean": 0.5602861950655136,
+            "ndcg10_sample_std": 0.009289019004253229
+          },
+          {
+            "requested_noise": 0.75,
+            "mean_actual_replacement_fraction": 0.8,
+            "ndcg10_mean": 0.5538441679111584,
+            "ndcg10_sample_std": 0.009528867978552338
+          },
+          {
+            "requested_noise": 1.0,
+            "mean_actual_replacement_fraction": 1.0,
+            "ndcg10_mean": 0.5441781978695746,
+            "ndcg10_sample_std": 0.004635398766337204
+          }
+        ],
+        "mean_all_conditions": 0.5562574310163506,
+        "mean_noisy_over_clean": 0.987170685922843
+      },
+      {
+        "query_weight": 0.85,
+        "conditions": [
+          {
+            "requested_noise": 0.0,
+            "mean_actual_replacement_fraction": 0.0,
+            "ndcg10_mean": 0.5482956271287902,
+            "ndcg10_sample_std": 0.0
+          },
+          {
+            "requested_noise": 0.25,
+            "mean_actual_replacement_fraction": 0.2,
+            "ndcg10_mean": 0.5494451770997913,
+            "ndcg10_sample_std": 0.003315931381474119
+          },
+          {
+            "requested_noise": 0.5,
+            "mean_actual_replacement_fraction": 0.5,
+            "ndcg10_mean": 0.5488214552109141,
+            "ndcg10_sample_std": 0.006324682742959265
+          },
+          {
+            "requested_noise": 0.75,
+            "mean_actual_replacement_fraction": 0.8,
+            "ndcg10_mean": 0.545209419615087,
+            "ndcg10_sample_std": 0.0029270980131850706
+          },
+          {
+            "requested_noise": 1.0,
+            "mean_actual_replacement_fraction": 1.0,
+            "ndcg10_mean": 0.5392638784515281,
+            "ndcg10_sample_std": 0.004014081666731825
+          }
+        ],
+        "mean_all_conditions": 0.5462071115012221,
+        "mean_noisy_over_clean": 0.9952386187208331
+      },
+      {
+        "query_weight": 0.95,
+        "conditions": [
+          {
+            "requested_noise": 0.0,
+            "mean_actual_replacement_fraction": 0.0,
+            "ndcg10_mean": 0.5333644272631354,
+            "ndcg10_sample_std": 0.0
+          },
+          {
+            "requested_noise": 0.25,
+            "mean_actual_replacement_fraction": 0.2,
+            "ndcg10_mean": 0.5350170943820576,
+            "ndcg10_sample_std": 0.0027690881038865203
+          },
+          {
+            "requested_noise": 0.5,
+            "mean_actual_replacement_fraction": 0.5,
+            "ndcg10_mean": 0.5333268734312446,
+            "ndcg10_sample_std": 0.003136359927112706
+          },
+          {
+            "requested_noise": 0.75,
+            "mean_actual_replacement_fraction": 0.8,
+            "ndcg10_mean": 0.5361558487605312,
+            "ndcg10_sample_std": 0.002496026314056786
+          },
+          {
+            "requested_noise": 1.0,
+            "mean_actual_replacement_fraction": 1.0,
+            "ndcg10_mean": 0.532022781913185,
+            "ndcg10_sample_std": 0.002418802983648473
+          }
+        ],
+        "mean_all_conditions": 0.5339774051500308,
+        "mean_noisy_over_clean": 1.0014365831680057
+      },
+      {
+        "query_weight": 1.0,
+        "conditions": [
+          {
+            "requested_noise": 0.0,
+            "mean_actual_replacement_fraction": 0.0,
+            "ndcg10_mean": 0.5312815614947977,
+            "ndcg10_sample_std": 0.0
+          },
+          {
+            "requested_noise": 0.25,
+            "mean_actual_replacement_fraction": 0.2,
+            "ndcg10_mean": 0.5312815614947977,
+            "ndcg10_sample_std": 0.0
+          },
+          {
+            "requested_noise": 0.5,
+            "mean_actual_replacement_fraction": 0.5,
+            "ndcg10_mean": 0.5312815614947977,
+            "ndcg10_sample_std": 0.0
+          },
+          {
+            "requested_noise": 0.75,
+            "mean_actual_replacement_fraction": 0.8,
+            "ndcg10_mean": 0.5312815614947977,
+            "ndcg10_sample_std": 0.0
+          },
+          {
+            "requested_noise": 1.0,
+            "mean_actual_replacement_fraction": 1.0,
+            "ndcg10_mean": 0.5312815614947977,
+            "ndcg10_sample_std": 0.0
+          }
+        ],
+        "mean_all_conditions": 0.5312815614947977,
+        "mean_noisy_over_clean": 1.0
+      }
+    ],
+    "selected_query_weight": 0.5,
+    "input_hashes": {
+      "corpus": "f06410297b8a0f8e599952eadfe7b4acf2019df556b34e58231238cc026f01d8",
+      "queries": "d3f6798cd2b98b791f3428db8e1d38e56431f69bda067568001ce5ff40dc574f",
+      "qrels": "040480e23d806c43924940fd3275e1917c137eda9ec0718e180158e1239200eb",
+      "candidates": "88b2a85a9b2ba61577eb37c360be72c0820e3bc088baada81feac5fe8465c75a"
+    },
+    "feedback_source_sha256": "b0308c6648b1e50933f8f1e588e3996a6ae1fc98204fec5ce5fef358e97f1fe5"
+  }
 }

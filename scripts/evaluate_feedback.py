@@ -37,6 +37,13 @@ def positive_int(value):
     return number
 
 
+def positive_float(value):
+    number = float(value)
+    if not math.isfinite(number) or number <= 0:
+        raise argparse.ArgumentTypeError("must be a finite positive number")
+    return number
+
+
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     for name in ("corpus", "queries", "qrels", "candidates"):
@@ -54,6 +61,12 @@ def parser():
                         help="practice replacement fractions (default: 0 0.25 0.5); clean is always included")
     result.add_argument("--prf-depth", type=positive_int, default=PRF_DEPTH,
                         help="number of baseline results used as feedback seeds (default: %(default)s)")
+    result.add_argument("--dirichlet-mu", type=positive_float,
+                        help="override submission feedback.DIRICHLET_MU for this experiment")
+    result.add_argument("--feedback-mu", type=positive_float,
+                        help="override submission feedback.FEEDBACK_MU for this experiment")
+    result.add_argument("--expansion-terms", type=positive_int,
+                        help="override submission feedback.EXPANSION_TERMS for this experiment")
     return result
 
 
@@ -142,6 +155,23 @@ def evaluate(args):
     estimators = list(dict.fromkeys(args.estimators))
     levels = sorted(set(args.noise_levels) | {0.0})
 
+    original_settings = {
+        "DIRICHLET_MU": feedback.DIRICHLET_MU,
+        "FEEDBACK_MU": feedback.FEEDBACK_MU,
+        "EXPANSION_TERMS": feedback.EXPANSION_TERMS,
+        "RM_ESTIMATOR": feedback.RM_ESTIMATOR,
+        "QUERY_WEIGHT": feedback.QUERY_WEIGHT,
+    }
+    overrides = {
+        "DIRICHLET_MU": args.dirichlet_mu,
+        "FEEDBACK_MU": args.feedback_mu,
+        "EXPANSION_TERMS": args.expansion_terms,
+    }
+    for name, value in overrides.items():
+        if value is not None:
+            setattr(feedback, name, value)
+    study_settings = {name: getattr(feedback, name) for name in original_settings}
+
     started = time.perf_counter()
     feedback.prepare(str(args.corpus))
     prepare_seconds = time.perf_counter() - started
@@ -174,7 +204,6 @@ def evaluate(args):
         }
 
     rows = []
-    original_settings = feedback.RM_ESTIMATOR, feedback.QUERY_WEIGHT
     try:
         for estimator in estimators:
             feedback.RM_ESTIMATOR = estimator
@@ -200,7 +229,8 @@ def evaluate(args):
                         "repeat_count": len(repeats), "repeats": repeats,
                     })
     finally:
-        feedback.RM_ESTIMATOR, feedback.QUERY_WEIGHT = original_settings
+        for name, value in original_settings.items():
+            setattr(feedback, name, value)
 
     return {
         "note": "Local development measurements, not leaderboard scores. Toy data is for debugging, not tuning.",
@@ -209,8 +239,9 @@ def evaluate(args):
         "settings": {
             "estimators": estimators, "query_weights": weights, "base_seeds": args.seeds,
             "noise_levels": levels, "prf_depth": args.prf_depth, "ranking_cutoff": 10,
-            "dirichlet_mu": feedback.DIRICHLET_MU, "feedback_mu": feedback.FEEDBACK_MU,
-            "expansion_terms": feedback.EXPANSION_TERMS,
+            "dirichlet_mu": study_settings["DIRICHLET_MU"],
+            "feedback_mu": study_settings["FEEDBACK_MU"],
+            "expansion_terms": study_settings["EXPANSION_TERMS"],
         },
         "coverage": {
             "input_queries": len(queries), "queries_with_candidates": len(query_ids & pools.keys()),

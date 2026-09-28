@@ -28,9 +28,8 @@ Or just run `bash scripts/smoke_test.sh`, which does all three.
 The submission implements RM1 and RM2 estimation followed by RM3
 interpolation with the original query. The default estimator and parameters
 are near the top of `submission/feedback.py`. The current settings were
-chosen on 35 TREC-COVID development topics and checked on 15 reserved
-topics; [the recorded results](docs/DEV_RESULTS.md) include the gains and
-the base-ranking tradeoff.
+chosen on TREC-COVID development data; [the recorded results](docs/DEV_RESULTS.md)
+include the gains, base-ranking tradeoff, and follow-up robustness check.
 
 Run `python3 -m pytest tests/ -v` for all checks, including hand-calculated
 model probabilities and reproducibility across Python processes. The

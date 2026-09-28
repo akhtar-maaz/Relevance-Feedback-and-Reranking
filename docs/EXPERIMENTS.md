@@ -147,12 +147,33 @@ Queries containing only words absent from the corpus and seeds without
 observed words fall back to base scoring. Seed documents are never
 replaced with a cached clean ranking.
 
-The current defaults were selected on 35 full-development topics and
-checked on 15 reserved topics using the fixed protocol above. See
-[the recorded results](DEV_RESULTS.md) for the chosen parameters, topic
-variation, and the base-ranking tradeoff. The six toy queries were not
-used for this parameter selection; private grading performance remains
+The initial defaults were selected on 35 full-development topics and
+checked on 15 reserved topics using the fixed protocol above. After the
+leaderboard showed low drift retention, a follow-up lambda sweep on all 50
+development topics tested noise through 100% and five paired noise draws.
+That follow-up set the query weight to 0.5; it reuses the public topics and
+is parameter sensitivity, not independent validation. See
+[the recorded results](DEV_RESULTS.md) for both stages, topic variation,
+and the base-ranking tradeoff. Private grading performance remains
 unknown.
+
+Reproduce the follow-up robustness sweep with:
+
+```bash
+python3 scripts/evaluate_feedback.py \
+  --corpus data/full/corpus.jsonl \
+  --queries data/full/queries_dev.tsv \
+  --qrels data/full/qrels_dev.txt \
+  --candidates data/full/candidates_dev.jsonl \
+  --estimators rm1 \
+  --lambdas 0.25 0.5 0.65 0.75 0.85 0.95 1.0 \
+  --seeds 10 11 12 13 14 \
+  --noise-levels 0 0.25 0.5 0.75 1.0 \
+  --dirichlet-mu 500 \
+  --feedback-mu 300 \
+  --expansion-terms 20 \
+  --output runs/full-dev/anchor_sensitivity.json
+```
 
 AI assistance was used to implement and revise the relevance models,
 identify the RM2 prior inconsistency, add regression tests, and build the

@@ -96,8 +96,49 @@ validation repeat, and paired per-topic change; `before_report.json` and
 artifacts are ignored by Git. A compact aggregate record is kept in
 [dev_results.json](dev_results.json).
 
-All 53 tests pass after applying these settings. The full corpus prepared
-in about 7.6 seconds in the final
-harness run on this machine. Dependencies were installed in a temporary
-local environment; the submission itself still uses only the standard
-library and provided helpers.
+The original 0.25 configuration passed all 53 tests. The follow-up changed
+only the RM3 query weight to 0.5; the expanded, five-seed public-data
+evaluation was rerun with this weight. The full corpus prepared in about
+7.6 seconds in the original harness run on this machine. Dependencies
+were installed in a temporary local environment; the submission itself
+still uses only the standard library and provided helpers.
+
+
+## Follow-up after the leaderboard screenshot
+
+The screenshot after the previous commit showed rank 15, Track A nDCG@10
+0.4960, Track B nDCG@10 0.4896, and Track C retention 0.8565. Because
+those topics and the grading noise recipe are held out, the public scores
+cannot pinpoint the cause. The low retention motivated testing a stronger
+query anchor on the available development topics.
+
+With QL mu 500, feedback mu 300, RM1, and 20 expansion terms held fixed,
+the evaluator compared query weights 0.25 and 0.5 under five paired noise
+draws at requested replacement levels 0%, 25%, 50%, 75%, and 100%. It
+uses the same 50 public topics as the earlier evaluation, so these results
+are a follow-up sensitivity check, not a fresh holdout. At seed depth 10,
+requested 25% again replaces 2 documents (20% actual).
+
+| Requested noise | Lambda 0.25 nDCG@10 | Lambda 0.5 nDCG@10 | Change |
+|---|---:|---:|---:|
+| Clean | 0.590632 | 0.585438 | -0.005194 |
+| 25% (20% actual) | 0.589965 | 0.589392 | -0.000573 |
+| 50% | 0.576737 | 0.583118 | +0.006381 |
+| 75% | 0.534893 | 0.562460 | +0.027567 |
+| 100% | 0.514539 | 0.548298 | +0.033760 |
+
+Across the five conditions, mean nDCG@10 rose from 0.561353
+to 0.573741. Mean noisy nDCG divided by clean nDCG rose
+from 0.9380 to 0.9750. The 0.5 query weight loses
+-0.005194 clean nDCG@10 and gains more as
+contamination grows. This is why the current default uses 0.5: it retains
+most of the clean gain while reducing drift in this extended practice
+stress test. At lambda 1, feedback is exactly the base query-likelihood
+ranking.
+
+The follow-up report records all seven tested query weights, repeat
+variation, per-query scores, settings, and source/input hashes in the
+ignored local file `runs/full-dev/anchor_sensitivity_verified.json`. The
+reproduction command is in [EXPERIMENTS.md](EXPERIMENTS.md). This provides
+evidence about public development topics only; it does not establish that
+the next hidden leaderboard result will improve.

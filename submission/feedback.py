@@ -61,7 +61,7 @@ from submission.lm_utils import CollectionStats, dirichlet_smoothed_log_prob, to
 
 DIRICHLET_MU = 500.0
 FEEDBACK_MU = 300.0
-QUERY_WEIGHT = 0.25  # RM3 lambda: 1 keeps the query; 0 uses only feedback.
+QUERY_WEIGHT = 0.5  # RM3 lambda: 1 keeps the query; 0 uses only feedback.
 EXPANSION_TERMS = 20
 RM_ESTIMATOR = "rm1"  # Either "rm1" or "rm2"; both feed RM3 interpolation.
 
