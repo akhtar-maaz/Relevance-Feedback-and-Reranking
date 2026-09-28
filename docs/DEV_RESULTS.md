@@ -194,7 +194,7 @@ Track B 0.5027, retention 0.9968, and final score 0.1929. Retention was
 already strong, while the raw accuracy remained below the leading teams.
 The next development change therefore targeted ranking accuracy.
 
-The new base uses the supplied candidate order, full-text query
+The tested base used the supplied candidate order, full-text query
 likelihood, and a separate Dirichlet query likelihood over the first 15
 tokens of each document. These opening tokens often contain the paper
 title in this corpus. The fusion is `candidate_rank + 0.1 * full_QL_rank`,
@@ -216,7 +216,13 @@ are in ignored `runs/full-dev/lead_fusion_final_report.json` and
 `runs/full-dev/lead_fusion_final_sensitivity.json`.
 
 Several opening-window sizes and rank weights were explored on the same
-50 public topics, including the earlier 35/15 split. The split is not
+50 public topics, including the earlier 35/15 split. The split was not
 an untouched holdout for this change, and the public recipe differs from
-the grading recipe. The next leaderboard submission is needed to measure
-the actual effect on the hidden topics.
+the grading recipe.
+
+The hidden leaderboard result for this version was substantially worse:
+Track A 0.3915, MAP 0.2843, Track B 0.3974, retention 0.9991, and final
+score 0.0750. The large public gains failed to transfer to hidden topics.
+The opening-text model and its changed rank weights were removed; the
+submission code was restored to commit `491d357`, whose leaderboard score
+was 0.1929. The later dependency-only conformance fix remains in place.
