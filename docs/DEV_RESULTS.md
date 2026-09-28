@@ -265,15 +265,36 @@ nDCG@10 0.5028, MAP@10 0.4273, Track B nDCG@10 0.5018, retention
 restored 0.1929 version, although the class-relative score can also
 change when other teams submit.
 
-## Smaller feedback contribution trial
+## Three-round model study
 
-The next trial keeps the successful base rank weight at 0.1 and reduces
-only the feedback rank weight from 0.1 to 0.05. The relevance model is
-still estimated from the supplied seed and can affect rankings; in a
-100-document pool, a large feedback-rank difference can still move a
-candidate several places. Public development top-10 metrics were
-unchanged between these two feedback weights in a three-draw comparison,
-so there is no local evidence that the change improves accuracy. The
-reason to try it is the hidden retention of 0.9990 and the observation
-that leading teams often retain 1.0000. The 0.2440 submission remains
-the best known hidden result until this trial is evaluated there.
+The configured feedback weight was briefly changed from 0.1 to 0.05.
+The code enforces `max(configured_weight, 10 / candidate_count)` for
+feedback rank fusion, so both settings have the same effective 0.1
+weight on the public 100-document pools. That trial did not test a
+different public model. A separate scratch comparison lowered the floor
+to make 0.05 effective; it had mixed results across three held-out topic
+folds and was not promoted. The configured weight was restored to 0.1,
+matching the best known hidden result of 0.2440.
+
+One agent compared a fixed compact grid covering RM1/RM2, Dirichlet
+smoothing, original-query anchoring, candidate-order weight, and feedback
+rank weight. The 50 public topics were split into three folds of 17, 17,
+and 16 topics. Each model was measured on two training folds and the
+remaining test fold in each of three rounds, with independent train/test
+noise draws at 50% and 100% replacement. All feedback calls used the
+provided seeds and candidate pools.
+
+| Model | Mean test Track A nDCG@10 | Mean test Track B nDCG@10 | Mean capped retention |
+|---|---:|---:|---:|
+| Current effective feedback weight 0.1 | 0.5841 | 0.5854 | 0.9947 |
+| Feedback weight 0.15 | 0.5841 | 0.5915 | 0.9907 |
+| Feedback weight 0.2 | 0.5841 | 0.5945 | 0.9905 |
+| Dirichlet mu 1000 | 0.5852 | 0.5898 | 0.9919 |
+
+Stronger feedback improved clean accuracy in each test fold but reduced
+retention in some folds. None of the tested settings improved a proxy
+weighted like the public leaderboard components in all three test folds.
+The proxy used raw metrics; the real leaderboard percentile-ranks class
+results, so this study cannot predict a hidden score. Local detail is in
+ignored `runs/full-dev/three_round_study.json` and
+`runs/full-dev/half_feedback_floor.json`.
