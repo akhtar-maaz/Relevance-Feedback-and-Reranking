@@ -25,8 +25,8 @@ def main():
         import ir_datasets
     except ImportError:
         raise SystemExit(
-            "ir_datasets is not installed. Run `pip install ir_datasets` "
-            "(it is already listed in requirements.txt) and try again."
+            "ir_datasets is not installed. Run "
+            "`pip install -r requirements-download.txt` and try again."
         )
 
     os.makedirs(args.out, exist_ok=True)

@@ -1,0 +1,2 @@
+# Optional: needed only to fetch the full public development corpus.
+ir_datasets>=0.5.5

@@ -22,6 +22,8 @@ python -m harness.run_harness \
 ```
 
 Or just run `bash scripts/smoke_test.sh`, which does all three.
+To fetch the optional full public corpus, first run
+`pip install -r requirements-download.txt`.
 
 ## Model checks and repeatable experiments
 
