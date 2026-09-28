@@ -186,3 +186,37 @@ noise recipe, and percentile scores, so this result does not guarantee
 a similar leaderboard gain. The candidate order may also be less useful
 on another pool. The unigram likelihood and RM1/RM3 computations remain
 independently inspectable in `submission/feedback.py`.
+
+## Opening-text query likelihood after the third leaderboard result
+
+The next leaderboard submission improved to Track A 0.5021, MAP 0.4267,
+Track B 0.5027, retention 0.9968, and final score 0.1929. Retention was
+already strong, while the raw accuracy remained below the leading teams.
+The next development change therefore targeted ranking accuracy.
+
+The new base uses the supplied candidate order, full-text query
+likelihood, and a separate Dirichlet query likelihood over the first 15
+tokens of each document. These opening tokens often contain the paper
+title in this corpus. The fusion is `candidate_rank + 0.1 * full_QL_rank`,
+then `base_rank + 0.15 * opening_QL_rank`. The opening model uses mu 100.
+Feedback still uses RM1/RM3 from the supplied seed; its rank weight is
+0.1 for the 100-document public pools to reduce drift.
+
+| Public development measure | Previous commit | Opening-text model |
+|---|---:|---:|
+| Track A nDCG@10 | 0.573883 | 0.623566 |
+| Track B clean nDCG@10 | 0.583922 | 0.625311 |
+| Public practice retention, default draws | 0.9994 | 1.0000 |
+
+Across five separate public noise draws, the new model scored 0.625311
+clean, 0.625711 at requested 25% noise, 0.626344 at 50%, 0.623728 at
+75%, and 0.616901 at 100%. The average noisy-to-clean ratio across those
+four noisy conditions is about 0.9966. The complete local measurements
+are in ignored `runs/full-dev/lead_fusion_final_report.json` and
+`runs/full-dev/lead_fusion_final_sensitivity.json`.
+
+Several opening-window sizes and rank weights were explored on the same
+50 public topics, including the earlier 35/15 split. The split is not
+an untouched holdout for this change, and the public recipe differs from
+the grading recipe. The next leaderboard submission is needed to measure
+the actual effect on the hidden topics.

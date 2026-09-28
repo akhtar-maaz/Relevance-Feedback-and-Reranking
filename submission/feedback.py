@@ -42,12 +42,13 @@ change their signatures, or move them out of this file.
             pseudo_relevant_doc_ids and not from outside either list.
         Return up to k (doc_id, score) pairs, sorted by score descending.
 
-The base reranker uses Dirichlet-smoothed query likelihood and a modest
-prior from the provided first-pass candidate order. Feedback estimates RM1
-or RM2 from the supplied seed, then interpolates a truncated relevance
-model with the original query (RM3). The final ranking fuses feedback with
-the base ranking to limit drift from contaminated seeds. No ranking or seed
-is cached by query; every call uses exactly the supplied documents.
+The base reranker combines Dirichlet-smoothed full-text and opening-text
+query likelihood with the provided first-pass candidate order. Feedback
+estimates RM1 or RM2 from the supplied seed, then interpolates a truncated
+relevance model with the original query (RM3). The final ranking fuses
+feedback with the base ranking to limit drift from contaminated seeds. No
+ranking or seed is cached by query; every call uses exactly the supplied
+documents.
 
 Only Python's standard library and the starter's token/count helpers are
 used. The earlier RM3 defaults were selected on 35 TREC-COVID development
@@ -66,8 +67,11 @@ FEEDBACK_MU = 300.0
 QUERY_WEIGHT = 0.5  # RM3 lambda: 1 keeps the query; 0 uses only feedback.
 EXPANSION_TERMS = 20
 RM_ESTIMATOR = "rm1"  # Either "rm1" or "rm2"; both feed RM3 interpolation.
-FIRST_PASS_RANK_WEIGHT = 0.5
-FEEDBACK_RANK_WEIGHT = 0.25
+FIRST_PASS_RANK_WEIGHT = 0.1
+LEAD_WINDOW_TERMS = 15
+LEAD_DIRICHLET_MU = 100.0
+LEAD_RANK_WEIGHT = 0.15
+FEEDBACK_RANK_WEIGHT = 0.1
 
 _STATS: Optional[CollectionStats] = None
 
@@ -103,6 +107,14 @@ def _require_stats() -> CollectionStats:
 def _validate_parameters(feedback: bool = False) -> None:
     if not math.isfinite(DIRICHLET_MU) or DIRICHLET_MU <= 0:
         raise ValueError("DIRICHLET_MU must be finite and positive")
+    if not math.isfinite(FIRST_PASS_RANK_WEIGHT) or FIRST_PASS_RANK_WEIGHT < 0:
+        raise ValueError("FIRST_PASS_RANK_WEIGHT must be finite and nonnegative")
+    if not isinstance(LEAD_WINDOW_TERMS, int) or LEAD_WINDOW_TERMS < 1:
+        raise ValueError("LEAD_WINDOW_TERMS must be a positive integer")
+    if not math.isfinite(LEAD_DIRICHLET_MU) or LEAD_DIRICHLET_MU <= 0:
+        raise ValueError("LEAD_DIRICHLET_MU must be finite and positive")
+    if not math.isfinite(LEAD_RANK_WEIGHT) or LEAD_RANK_WEIGHT < 0:
+        raise ValueError("LEAD_RANK_WEIGHT must be finite and nonnegative")
     if not feedback:
         return
     if not math.isfinite(FEEDBACK_MU) or FEEDBACK_MU <= 0:
@@ -113,14 +125,16 @@ def _validate_parameters(feedback: bool = False) -> None:
         raise ValueError("EXPANSION_TERMS must be a positive integer")
     if RM_ESTIMATOR not in ("rm1", "rm2"):
         raise ValueError("RM_ESTIMATOR must be 'rm1' or 'rm2'")
+    if not math.isfinite(FEEDBACK_RANK_WEIGHT) or FEEDBACK_RANK_WEIGHT < 0:
+        raise ValueError("FEEDBACK_RANK_WEIGHT must be finite and nonnegative")
 
 
 def score_candidates(query: str, candidate_doc_ids: List[str], k: int = 10) -> List[Tuple[str, float]]:
     """Rerank the supplied pool with query likelihood and its initial order.
 
-    The input order is a useful, score-free first-pass prior. Query
-    likelihood can move documents within it, while the prior prevents
-    excessive changes on queries whose words are common in the corpus.
+    The input order is a useful, score-free first-pass prior. Full-text
+    query likelihood can move documents within it. A second query
+    likelihood over the opening words rewards focused title-like matches.
     """
     stats = _require_stats()
     _validate_parameters()
@@ -128,7 +142,13 @@ def score_candidates(query: str, candidate_doc_ids: List[str], k: int = 10) -> L
         return []
     query_likelihood = _ql_rerank(query, candidate_doc_ids, len(candidate_doc_ids), stats)
     first_pass = list(dict.fromkeys(candidate_doc_ids))
-    return _fuse_ranks(first_pass, query_likelihood, FIRST_PASS_RANK_WEIGHT, k)
+    base = _fuse_ranks(first_pass, query_likelihood, FIRST_PASS_RANK_WEIGHT,
+                       len(first_pass))
+    lead_likelihood = _lead_ql_rerank(query, candidate_doc_ids, stats)
+    if not lead_likelihood:
+        return base[:k]
+    return _fuse_ranks([doc_id for doc_id, _ in base], lead_likelihood,
+                       LEAD_RANK_WEIGHT, k)
 
 
 def relevance_model_feedback(
@@ -195,6 +215,29 @@ def _fuse_ranks(
         for rank, doc_id in enumerate(dict.fromkeys(prior_ids), 1)
     ]
     return sorted(scored, key=lambda pair: pair[1], reverse=True)[:k]
+
+
+def _lead_ql_rerank(query: str, doc_ids: List[str], stats: CollectionStats) -> List[Tuple[str, float]]:
+    """Query likelihood from each document's opening, title-like terms."""
+    query_counts = Counter(tokenize(query))
+    terms = [
+        (term, count, stats.collection_prob(term))
+        for term, count in sorted(query_counts.items())
+        if stats.collection_prob(term) > 0
+    ]
+    if not terms:
+        return []
+    scores = []
+    for doc_id in dict.fromkeys(doc_ids):
+        lead = Counter(tokenize(stats.doc_texts[doc_id])[:LEAD_WINDOW_TERMS])
+        length = sum(lead.values())
+        score = math.fsum(
+            count * dirichlet_smoothed_log_prob(lead.get(term, 0), length, background,
+                                                LEAD_DIRICHLET_MU)
+            for term, count, background in terms
+        )
+        scores.append((doc_id, score))
+    return sorted(scores, key=lambda pair: pair[1], reverse=True)
 
 
 def _normalize(weights: Dict[str, float]) -> Dict[str, float]:

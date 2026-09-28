@@ -26,9 +26,9 @@ Or just run `bash scripts/smoke_test.sh`, which does all three.
 ## Model checks and repeatable experiments
 
 The submission implements RM1 and RM2 estimation followed by RM3
-interpolation with the original query. It combines query likelihood with
-the order of the supplied candidates, then combines feedback with that
-base ranking to reduce drift. The default settings are near the top of
+interpolation with the original query. It combines full-text and opening-text
+query likelihood with the order of the supplied candidates, then combines
+feedback with that base ranking to reduce drift. The default settings are near the top of
 `submission/feedback.py`; [the recorded results](docs/DEV_RESULTS.md)
 include the public development measurements and their limits.
 
