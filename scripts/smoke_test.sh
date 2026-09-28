@@ -3,20 +3,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "== Interface conformance tests =="
-pytest tests/test_interface_conformance.py -v
-
-echo
-echo "== Metrics unit tests =="
-pytest tests/test_metrics.py -v
-
-echo
-echo "== Leaderboard scoring unit tests =="
-pytest tests/test_leaderboard.py -v
+echo "== Full test suite =="
+python3 -m pytest tests/ -v
 
 echo
 echo "== Full harness run on the toy set =="
-python -m harness.run_harness \
+python3 -m harness.run_harness \
   --corpus data/toy/corpus.jsonl \
   --queries data/toy/queries_dev.tsv \
   --qrels data/toy/qrels_dev.txt \

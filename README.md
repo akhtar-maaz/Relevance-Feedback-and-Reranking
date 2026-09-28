@@ -23,6 +23,24 @@ python -m harness.run_harness \
 
 Or just run `bash scripts/smoke_test.sh`, which does all three.
 
+## Model checks and repeatable experiments
+
+The submission implements RM1 and RM2 estimation followed by RM3
+interpolation with the original query. The default estimator and parameters
+are near the top of `submission/feedback.py`. The current settings were
+chosen on 35 TREC-COVID development topics and checked on 15 reserved
+topics; [the recorded results](docs/DEV_RESULTS.md) include the gains and
+the base-ranking tradeoff.
+
+Run `python3 -m pytest tests/ -v` for all checks, including hand-calculated
+model probabilities and reproducibility across Python processes. The
+model tests also run without pytest: `python3 tests/test_feedback_models.py`.
+
+See [the experiment guide](docs/EXPERIMENTS.md) for paired noise trials,
+lambda sweeps, and JSON results using `scripts/evaluate_feedback.py`.
+Use the toy set for debugging; choose final parameters on the full
+development data and the candidate file supplied by course staff.
+
 ## What you edit
 
 Only `submission/feedback.py` (and, optionally,

@@ -42,57 +42,80 @@ change their signatures, or move them out of this file.
             pseudo_relevant_doc_ids and not from outside either list.
         Return up to k (doc_id, score) pairs, sorted by score descending.
 
-This file ships with a trivial, fully-working baseline: score_candidates()
-does real Dirichlet-smoothed query-likelihood reranking of whatever
-candidate pool it's given (so it is not literally a no-op), and
-relevance_model_feedback() ignores pseudo_relevant_doc_ids entirely and
-just reranks candidate_doc_ids the same way score_candidates() would. It
-exercises the full interface correctly end-to-end from your first commit,
-including the harness's noise-injection stress test (it will score
-identically at every noise level, since it never looks at its seed input
--- which is itself a legitimate, if unambitious, point on the Track C
-"retention" axis: you cannot drift if you never expand). Replace the
-feedback logic; keep the same function shapes.
+The base reranker uses Dirichlet-smoothed query likelihood. Feedback
+estimates RM1 or RM2 from the supplied seed, then interpolates a truncated
+relevance model with the original query (RM3). No ranking or seed is
+cached by query; every call uses exactly the supplied documents.
+
+Only Python's standard library and the starter's token/count helpers are
+used. Defaults were selected on 35 TREC-COVID development topics and
+checked on 15 reserved topics; see docs/DEV_RESULTS.md for the tradeoffs.
+Use scripts/tune_feedback.py to reproduce that fixed evaluation protocol.
 """
-import os
+import json
+import math
+from collections import Counter
 from typing import Dict, List, Optional, Tuple
 
-from submission.corpus_utils import load_corpus
 from submission.lm_utils import CollectionStats, dirichlet_smoothed_log_prob, tokenize
 
-# TODO(you): tune this. mu is the Dirichlet smoothing parameter (Section
-# 3.1) -- larger values smooth more aggressively toward the collection
-# model. There is no single "correct" value; it is a real design choice.
-DIRICHLET_MU = 1500.0
+DIRICHLET_MU = 500.0
+FEEDBACK_MU = 300.0
+QUERY_WEIGHT = 0.25  # RM3 lambda: 1 keeps the query; 0 uses only feedback.
+EXPANSION_TERMS = 20
+RM_ESTIMATOR = "rm1"  # Either "rm1" or "rm2"; both feed RM3 interpolation.
 
-# ---------------------------------------------------------------------------
-# Module-level state. prepare() populates this; both retrieval functions
-# read it. No build/load process split this assignment (see module
-# docstring) -- unlike Assignment 1, it is fine for this to just live in
-# memory for the lifetime of the harness process.
-# ---------------------------------------------------------------------------
 _STATS: Optional[CollectionStats] = None
 
 
 def prepare(corpus_path: str) -> None:
-    """Load the corpus and build collection-wide statistics. Called once,
-    before any score_candidates()/relevance_model_feedback() calls."""
+    """Stream corpus statistics in one pass, retaining texts for lazy counts.
+
+    Building a fresh object also resets document caches between corpora.
+    Duplicate IDs are rejected because they would corrupt collection counts.
+    """
     global _STATS
-    corpus = load_corpus(corpus_path)
-    _STATS = CollectionStats.from_corpus(corpus)
+    stats = CollectionStats()
+    with open(corpus_path, "r", encoding="utf-8") as corpus:
+        for line_number, line in enumerate(corpus, 1):
+            if not line.strip():
+                continue
+            document = json.loads(line)
+            doc_id, text = document["doc_id"], document["text"]
+            if not isinstance(doc_id, str) or not isinstance(text, str):
+                raise ValueError(f"Corpus line {line_number}: doc_id and text must be strings")
+            if doc_id in stats.doc_texts:
+                raise ValueError(f"Corpus line {line_number}: duplicate doc_id {doc_id!r}")
+            stats.add_document(doc_id, text)
+    _STATS = stats
+
+
+def _require_stats() -> CollectionStats:
+    if _STATS is None:
+        raise RuntimeError("Call prepare(corpus_path) before scoring or feedback.")
+    return _STATS
+
+
+def _validate_parameters(feedback: bool = False) -> None:
+    if not math.isfinite(DIRICHLET_MU) or DIRICHLET_MU <= 0:
+        raise ValueError("DIRICHLET_MU must be finite and positive")
+    if not feedback:
+        return
+    if not math.isfinite(FEEDBACK_MU) or FEEDBACK_MU <= 0:
+        raise ValueError("FEEDBACK_MU must be finite and positive")
+    if not math.isfinite(QUERY_WEIGHT) or not 0 <= QUERY_WEIGHT <= 1:
+        raise ValueError("QUERY_WEIGHT must be between 0 and 1")
+    if not isinstance(EXPANSION_TERMS, int) or EXPANSION_TERMS < 1:
+        raise ValueError("EXPANSION_TERMS must be a positive integer")
+    if RM_ESTIMATOR not in ("rm1", "rm2"):
+        raise ValueError("RM_ESTIMATOR must be 'rm1' or 'rm2'")
 
 
 def score_candidates(query: str, candidate_doc_ids: List[str], k: int = 10) -> List[Tuple[str, float]]:
-    """Return up to k (doc_id, score) pairs from `candidate_doc_ids`,
-    best first, under a Dirichlet-smoothed unigram query-likelihood model
-    (Section 3.1)."""
-    if _STATS is None:
-        raise RuntimeError(
-            "score_candidates() called before prepare(); the harness "
-            "always calls prepare(corpus_path) before any retrieval "
-            "calls. If you're testing manually, do the same."
-        )
-    return _ql_rerank(query, candidate_doc_ids, k, _STATS)
+    """Rank only the supplied candidates by unigram query likelihood."""
+    stats = _require_stats()
+    _validate_parameters()
+    return _ql_rerank(query, candidate_doc_ids, k, stats)
 
 
 def relevance_model_feedback(
@@ -101,49 +124,188 @@ def relevance_model_feedback(
     candidate_doc_ids: List[str],
     k: int = 10,
 ) -> List[Tuple[str, float]]:
-    """Return up to k (doc_id, score) pairs from `candidate_doc_ids`,
-    best first, using a relevance model estimated from
-    `pseudo_relevant_doc_ids` (Section 3.2). See the module docstring --
-    these are two different lists doing two different jobs.
+    """Estimate feedback from the supplied seed and rerank the candidate pool.
+
+    Seed documents may be outside the candidate pool. Empty seeds fall back
+    to query likelihood. Out-of-vocabulary query words cannot supply topical
+    evidence, so they do not dilute the query anchor or influence estimation.
     """
-    if _STATS is None:
-        raise RuntimeError(
-            "relevance_model_feedback() called before prepare(); see "
-            "score_candidates()'s error for the same reason."
-        )
-
-    # TODO(you): replace this with real RM1 -> RM3 feedback, e.g.:
-    #
-    #   relevance_model = estimate_relevance_model(query, pseudo_relevant_doc_ids, _STATS)
-    #   interpolated = interpolate_with_query_model(relevance_model, query, lam=0.5)
-    #   return rank_by_relevance_model(interpolated, candidate_doc_ids, _STATS, k)
-    #
-    # The trivial baseline below ignores pseudo_relevant_doc_ids entirely
-    # and just reranks candidate_doc_ids with plain query-likelihood.
-    return _ql_rerank(query, candidate_doc_ids, k, _STATS)
-
-
-# ---------------------------------------------------------------------------
-# Trivial reference baseline internals -- DO NOT submit this as your final
-# entry. A real Dirichlet-smoothed QL reranker (not a stub), so it is a
-# legitimate Track A entry on its own; only the feedback layer is a no-op.
-# ---------------------------------------------------------------------------
-def _ql_rerank(query: str, doc_ids: List[str], k: int, stats: CollectionStats) -> List[Tuple[str, float]]:
-    query_terms = tokenize(query)
-    if not query_terms:
+    stats = _require_stats()
+    _validate_parameters(feedback=True)
+    if k <= 0 or not candidate_doc_ids:
         return []
+    query_terms = [term for term in tokenize(query) if stats.collection_prob(term) > 0]
+    if not query_terms or not pseudo_relevant_doc_ids or QUERY_WEIGHT == 1:
+        return _ql_rerank(query, candidate_doc_ids, k, stats)
 
-    scores: Dict[str, float] = {}
-    for doc_id in doc_ids:
-        doc_length = stats.doc_lengths.get(doc_id, 0)
-        term_counts = stats.doc_term_counts(doc_id)
-        log_prob = 0.0
-        for term in query_terms:
-            p_collection = stats.collection_prob(term)
-            log_prob += dirichlet_smoothed_log_prob(
-                term_counts.get(term, 0), doc_length, p_collection, DIRICHLET_MU
+    # Canonical ordering makes the supplied set independent of input order.
+    # Unknown IDs raise the same clear error as candidate lookups; empty
+    # documents contribute no observed vocabulary and supply no feedback.
+    seed_ids = [
+        doc_id for doc_id in sorted(set(pseudo_relevant_doc_ids))
+        if stats.doc_term_counts(doc_id)
+    ]
+    if not seed_ids:
+        return _ql_rerank(query, candidate_doc_ids, k, stats)
+    estimator = _estimate_rm1 if RM_ESTIMATOR == "rm1" else _estimate_rm2
+    relevance_model = estimator(query_terms, seed_ids, stats)
+    expansion = _select_expansion(relevance_model, stats)
+    query_model = _normalize(Counter(query_terms))
+    model = _interpolate_rm3(query_model, expansion, QUERY_WEIGHT)
+    return _rank_model(model, candidate_doc_ids, k, stats)
+
+
+def _normalize(weights: Dict[str, float]) -> Dict[str, float]:
+    total = math.fsum(weights.values())
+    if total <= 0:
+        return {}
+    return {term: weights[term] / total for term in sorted(weights) if weights[term] > 0}
+
+
+def _softmax(log_weights: Dict[str, float]) -> Dict[str, float]:
+    if not log_weights:
+        return {}
+    highest = max(log_weights.values())
+    return _normalize({key: math.exp(value - highest) for key, value in log_weights.items()})
+
+
+def _seed_posteriors(query_terms: List[str], seed_ids: List[str], stats: CollectionStats) -> Dict[str, float]:
+    """P(D|Q) under a uniform seed-document prior, calculated in log space."""
+    query_counts = Counter(query_terms)
+    log_scores = {}
+    for doc_id in sorted(set(seed_ids)):
+        counts = stats.doc_term_counts(doc_id)
+        length = stats.doc_lengths[doc_id]
+        log_scores[doc_id] = math.fsum(
+            count * dirichlet_smoothed_log_prob(
+                counts.get(term, 0), length, stats.collection_prob(term), FEEDBACK_MU
             )
-        scores[doc_id] = log_prob
+            for term, count in sorted(query_counts.items())
+        )
+    return _softmax(log_scores)
 
-    ranked = sorted(scores.items(), key=lambda pair: pair[1], reverse=True)
-    return ranked[:k]
+
+def _seed_vocabulary(seed_ids: List[str], stats: CollectionStats) -> List[str]:
+    vocabulary = set()
+    for doc_id in seed_ids:
+        vocabulary.update(stats.doc_term_counts(doc_id))
+    return sorted(vocabulary)
+
+
+def _estimate_rm1(query_terms: List[str], seed_ids: List[str], stats: CollectionStats) -> Dict[str, float]:
+    """RM1: sum_D P(w|D) P(D|Q), normalized over the seed vocabulary.
+
+    Accumulate observed counts sparsely and add the shared collection
+    smoothing contribution once per word, avoiding a vocabulary x seed loop.
+    """
+    seed_ids = sorted(set(seed_ids))
+    posteriors = _seed_posteriors(query_terms, seed_ids, stats)
+    observed = {}
+    background_weights = []
+    for doc_id in seed_ids:
+        # Even if a posterior underflows to zero, its observed words remain
+        # in the seed vocabulary and can receive background smoothing.
+        posterior = posteriors.get(doc_id, 0.0)
+        scale = posterior / (stats.doc_lengths[doc_id] + FEEDBACK_MU)
+        background_weights.append(FEEDBACK_MU * scale)
+        for term, count in stats.doc_term_counts(doc_id).items():
+            observed.setdefault(term, []).append(scale * count)
+    background_weight = math.fsum(background_weights)
+    return _normalize({
+        term: math.fsum(contributions) + background_weight * stats.collection_prob(term)
+        for term, contributions in observed.items()
+    })
+
+
+def _estimate_rm2(query_terms: List[str], seed_ids: List[str], stats: CollectionStats) -> Dict[str, float]:
+    """RM2: P(w) product_i sum_D P(q_i|D) P(D|w), with one seed prior.
+
+    For n seed documents with uniform prior:
+        P(w) = sum_D P(w|D) / n
+        P(D|w) = P(w|D) / sum_D P(w|D).
+    Using collection P(w|C) for the first factor would mix two different
+    priors and break the one-word-query equivalence between RM1 and RM2.
+    Collection probabilities enter only through Dirichlet smoothing here.
+    """
+    seed_ids = sorted(set(seed_ids))
+    if not seed_ids:
+        return {}
+    counts = [stats.doc_term_counts(doc_id) for doc_id in seed_ids]
+    inverse_lengths = [1.0 / (stats.doc_lengths[doc_id] + FEEDBACK_MU) for doc_id in seed_ids]
+    query_probs = []
+    for term, frequency in sorted(Counter(query_terms).items()):
+        background = stats.collection_prob(term)
+        if background <= 0:
+            continue  # An OOV word has no evidence under any seed model.
+        probabilities = [
+            (doc_counts.get(term, 0) + FEEDBACK_MU * background) * inverse_length
+            for doc_counts, inverse_length in zip(counts, inverse_lengths)
+        ]
+        query_probs.append((frequency, probabilities))
+
+    log_model = {}
+    for term in _seed_vocabulary(seed_ids, stats):
+        background = stats.collection_prob(term)
+        word_probs = [
+            (doc_counts.get(term, 0) + FEEDBACK_MU * background) * inverse_length
+            for doc_counts, inverse_length in zip(counts, inverse_lengths)
+        ]
+        word_sum = math.fsum(word_probs)
+        log_conditionals = [
+            frequency * math.log(math.fsum(
+                p_word * p_query for p_word, p_query in zip(word_probs, probabilities)
+            ) / word_sum)
+            for frequency, probabilities in query_probs
+        ]
+        log_model[term] = math.log(word_sum / len(seed_ids)) + math.fsum(log_conditionals)
+    return _softmax(log_model)
+
+
+def _select_expansion(model: Dict[str, float], stats: CollectionStats) -> Dict[str, float]:
+    """Truncate by model probability times collection self-information.
+
+    This selection favors informative seed terms. The selected terms keep
+    their model probabilities, renormalized before RM3 interpolation.
+    """
+    terms = sorted(model, key=lambda term: (
+        -model[term] * math.log1p(1.0 / max(stats.collection_prob(term), 1e-300)),
+        term,
+    ))[:EXPANSION_TERMS]
+    return _normalize({term: model[term] for term in terms})
+
+
+def _interpolate_rm3(
+    query_model: Dict[str, float], relevance_model: Dict[str, float], query_weight: float,
+) -> Dict[str, float]:
+    """Mix normalized query and feedback models, preserving both endpoints."""
+    if not relevance_model:
+        return _normalize(query_model)
+    if not query_model:
+        return _normalize(relevance_model)
+    return _normalize({
+        term: query_weight * query_model.get(term, 0.0)
+        + (1.0 - query_weight) * relevance_model.get(term, 0.0)
+        for term in sorted(set(query_model) | set(relevance_model))
+    })
+
+
+def _rank_model(model: Dict[str, float], doc_ids: List[str], k: int, stats: CollectionStats) -> List[Tuple[str, float]]:
+    """Weighted log likelihood; RM3 ranking is equivalent to negative KL."""
+    if k <= 0 or not model:
+        return []
+    terms = [(term, weight, stats.collection_prob(term)) for term, weight in sorted(model.items())]
+    scores = []
+    for doc_id in dict.fromkeys(doc_ids):
+        counts = stats.doc_term_counts(doc_id)
+        length = stats.doc_lengths[doc_id]
+        score = math.fsum(
+            weight * dirichlet_smoothed_log_prob(counts.get(term, 0), length, background, DIRICHLET_MU)
+            for term, weight, background in terms
+        )
+        scores.append((doc_id, score))
+    # Stable sort retains candidate input order for true ties.
+    return sorted(scores, key=lambda pair: pair[1], reverse=True)[:k]
+
+
+def _ql_rerank(query: str, doc_ids: List[str], k: int, stats: CollectionStats) -> List[Tuple[str, float]]:
+    return _rank_model(Counter(tokenize(query)), doc_ids, k, stats)

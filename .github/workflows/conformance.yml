@@ -27,14 +27,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Interface conformance tests
-        run: pytest tests/test_interface_conformance.py -v
-
-      - name: Metrics unit tests
-        run: pytest tests/test_metrics.py -v
-
-      - name: Leaderboard scoring unit tests
-        run: pytest tests/test_leaderboard.py -v
+      - name: Run all tests, including relevance-model regressions
+        run: python -m pytest tests/ -v
 
       - name: Full harness smoke run (toy set)
         run: |

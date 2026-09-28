@@ -1,0 +1,195 @@
+{
+  "dataset": "beir/trec-covid",
+  "input_hashes": {
+    "corpus": "f06410297b8a0f8e599952eadfe7b4acf2019df556b34e58231238cc026f01d8",
+    "queries": "d3f6798cd2b98b791f3428db8e1d38e56431f69bda067568001ce5ff40dc574f",
+    "qrels": "040480e23d806c43924940fd3275e1917c137eda9ec0718e180158e1239200eb",
+    "candidates": "88b2a85a9b2ba61577eb37c360be72c0820e3bc088baada81feac5fe8465c75a"
+  },
+  "split": {
+    "training_query_ids": [
+      "16",
+      "21",
+      "10",
+      "42",
+      "32",
+      "24",
+      "6",
+      "13",
+      "20",
+      "17",
+      "9",
+      "25",
+      "48",
+      "30",
+      "15",
+      "35",
+      "19",
+      "7",
+      "50",
+      "36",
+      "41",
+      "5",
+      "39",
+      "2",
+      "45",
+      "12",
+      "1",
+      "43",
+      "38",
+      "33",
+      "23",
+      "46",
+      "4",
+      "14",
+      "28"
+    ],
+    "validation_query_ids": [
+      "11",
+      "44",
+      "29",
+      "49",
+      "27",
+      "3",
+      "8",
+      "18",
+      "26",
+      "40",
+      "31",
+      "37",
+      "22",
+      "34",
+      "47"
+    ]
+  },
+  "reference_parameters": {
+    "dirichlet_mu": 1500.0,
+    "feedback_mu": 10.0,
+    "query_weight": 0.5,
+    "expansion_terms": 20,
+    "rm_estimator": "rm2"
+  },
+  "selected_parameters": {
+    "dirichlet_mu": 500.0,
+    "feedback_mu": 300.0,
+    "query_weight": 0.25,
+    "expansion_terms": 20,
+    "rm_estimator": "rm1"
+  },
+  "reserved_topics_ndcg": [
+    {
+      "condition": "Base query likelihood",
+      "before": 0.4629252660661544,
+      "after": 0.44015913436020637
+    },
+    {
+      "condition": "Clean feedback",
+      "before": 0.432126997394869,
+      "after": 0.5027410027624961
+    },
+    {
+      "condition": "25% requested noise (20% actual)",
+      "before": 0.45179904513232877,
+      "after": 0.5161264718968908
+    },
+    {
+      "condition": "50% noise",
+      "before": 0.4702628939832914,
+      "after": 0.49162875501658265
+    }
+  ],
+  "reserved_topics_feedback_objective_comparison": {
+    "mean_delta": 0.05210243105516018,
+    "wins": 5,
+    "ties": 2,
+    "losses": 8
+  },
+  "all_topics_harness_ndcg": [
+    {
+      "condition": "Base query likelihood",
+      "before": 0.5324721562091639,
+      "after": 0.5312815614947977
+    },
+    {
+      "condition": "Clean feedback",
+      "before": 0.5392246860129766,
+      "after": 0.5906321651507829
+    },
+    {
+      "condition": "25% requested noise (20% actual)",
+      "before": 0.5576986237304759,
+      "after": 0.5871825685618223
+    },
+    {
+      "condition": "50% noise",
+      "before": 0.5428467897308097,
+      "after": 0.5836690744446211
+    }
+  ],
+  "protocol": {
+    "split_seed": 7364,
+    "train_fraction": 0.7,
+    "split_recipe": "sort query IDs; shuffle with random.Random(7364); first floor(0.7*n) train, remaining validation",
+    "ql_mus": [
+      500.0,
+      1500.0,
+      3000.0
+    ],
+    "estimators": [
+      "rm1",
+      "rm2"
+    ],
+    "feedback_mus": [
+      10.0,
+      300.0
+    ],
+    "query_weights": [
+      0.25,
+      0.5,
+      0.75
+    ],
+    "expansion_terms": 20,
+    "prf_depth": 10,
+    "ranking_cutoff": 10,
+    "noise_levels": [
+      0.0,
+      0.25,
+      0.5
+    ],
+    "training_noise_base_seeds": [
+      0,
+      1,
+      2
+    ],
+    "validation_noise_base_seeds": [
+      101,
+      102,
+      103,
+      104,
+      105
+    ],
+    "noise_recipe": "harness.noise_injection.sweep with stable_seed(qid, base_seed); identical draws across configurations; QL seed is recomputed per mu",
+    "ql_selection": "max training nDCG@10, then MAP@10, then closest to original reference mu",
+    "feedback_selection": "max arithmetic mean of clean nDCG@10 and repeat-mean nDCG@10 at 25% and 50% noise; exact ties prefer higher query weight, then first grid row",
+    "reference_parameters": {
+      "dirichlet_mu": 1500.0,
+      "feedback_mu": 10.0,
+      "query_weight": 0.5,
+      "expansion_terms": 20,
+      "rm_estimator": "rm2"
+    },
+    "validation_policy": "only selected and original reference, after selection is frozen",
+    "qrels_policy": "all judgments per evaluated topic, including documents outside the candidate pool"
+  },
+  "study_source_sha256": {
+    "scripts/tune_feedback.py": "3ebd3f3bcdeb29314d314e29013a22c5062be1a61467c2c19fedecf29bcaa3f8",
+    "submission/feedback.py": "cc4bce465f8cd8c5168b6de0b64e840db0da3f83995b503c7cb9ac168706a5d0",
+    "submission/lm_utils.py": "6de76f59b5fb2ad67ad615c377a1b2d3d3377100ae0a3a07727d59ec9c1f629c",
+    "scripts/evaluate_feedback.py": "55548aff0e269c4c2717b5508745fa7d70cad22c1daa88ba9acb5c9b43c51946",
+    "harness/metrics.py": "491bd40aa1880d8c9ff285700f9524ff9761b129140175d5e187d6fba1a2fa31",
+    "harness/noise_injection.py": "f9ae15c93e6410536b5b1c5fafa69060cf5af3245b0e0730ae396bc50a907c63",
+    "harness/run_harness.py": "1fcbf611c285123c864ec27db48eb16474737986b12104cd47ba0ca34e1ecf8f",
+    "harness/trec_io.py": "f255490601b6f059ef78066d0a7bccef3ac3cf893529d3f9447145596982de9a"
+  },
+  "notes": "All-topic metrics include tuning topics. Reserved-topic gains were uneven. No private grading data was used."
+}
